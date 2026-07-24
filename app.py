@@ -269,33 +269,63 @@ if st.session_state["reconcile_results"] is not None:
             df_year = df_chart[df_chart['Année'] == selected_year]
             
             if not df_year.empty:
+                # Tabulations Streamlit
+                tab_time, tab_cpo = st.tabs([
+                    "📈 Évolution Temporelle (Par Mois)", 
+                    "🏢 Répartition par Opérateur (CPO)"
+                ])
+                
                 # Groupe par CPO et Mois pour faire l'histogramme cumulé
                 df_grouped = df_year.groupby(['CPO', 'Mois'], as_index=False)['Montant_HT_Abs'].sum()
                 
                 # Classement des CPO par montant total dû (décroissant) pour l'ordre sur l'abscisse
                 cpo_order = df_year.groupby('CPO')['Montant_HT_Abs'].sum().sort_values(ascending=False).index.tolist()
                 
-                # Création du graphique Plotly Express
-                fig = px.bar(
-                    df_grouped,
-                    x='CPO',
-                    y='Montant_HT_Abs',
-                    color='Mois',
-                    title=f"Répartition du Montant Dû (€) par CPO et par Mois en {selected_year}",
-                    labels={'CPO': 'Opérateur CPO', 'Montant_HT_Abs': 'Montant Dû (€)', 'Mois': 'Mois de Recharge'},
-                    category_orders={'CPO': cpo_order, 'Mois': sorted(months_fr.values())},
-                    color_discrete_sequence=px.colors.qualitative.Prism,
-                    text_auto='.2f'
-                )
-                fig.update_layout(
-                    barmode='stack',
-                    xaxis_title="Opérateurs CPO (classés par montant dû décroissant)",
-                    yaxis_title="Total Montant Dû (valeur absolue) en €",
-                    hovermode="x unified",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                )
-                st.plotly_chart(fig, use_container_width=True)
+                with tab_time:
+                    # Graphique 1 : Évolution Temporelle (X = Mois, Y = Montant, Color = CPO)
+                    fig_time = px.bar(
+                        df_grouped,
+                        x='Mois',
+                        y='Montant_HT_Abs',
+                        color='CPO',
+                        title=f"Explosion du Montant Dû (€) par Mois de Recharge en {selected_year}",
+                        labels={'Mois': 'Mois de Recharge', 'Montant_HT_Abs': 'Montant Dû (€)', 'CPO': 'Opérateur CPO'},
+                        category_orders={'Mois': sorted(months_fr.values())},
+                        color_discrete_sequence=px.colors.qualitative.Prism,
+                        text_auto='.2f'
+                    )
+                    fig_time.update_layout(
+                        barmode='stack',
+                        xaxis_title="Chronologie (Mois de Recharge)",
+                        yaxis_title="Total Montant Dû (valeur absolue) en €",
+                        hovermode="x unified",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                    )
+                    st.plotly_chart(fig_time, use_container_width=True)
+                    
+                with tab_cpo:
+                    # Graphique 2 : Répartition par CPO (X = CPO, Y = Montant, Color = Mois)
+                    fig_cpo = px.bar(
+                        df_grouped,
+                        x='CPO',
+                        y='Montant_HT_Abs',
+                        color='Mois',
+                        title=f"Répartition du Montant Dû (€) par CPO et par Mois en {selected_year}",
+                        labels={'CPO': 'Opérateur CPO', 'Montant_HT_Abs': 'Montant Dû (€)', 'Mois': 'Mois de Recharge'},
+                        category_orders={'CPO': cpo_order, 'Mois': sorted(months_fr.values())},
+                        color_discrete_sequence=px.colors.qualitative.Prism,
+                        text_auto='.2f'
+                    )
+                    fig_cpo.update_layout(
+                        barmode='stack',
+                        xaxis_title="Opérateurs CPO (classés par montant dû décroissant)",
+                        yaxis_title="Total Montant Dû (valeur absolue) en €",
+                        hovermode="x unified",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                    )
+                    st.plotly_chart(fig_cpo, use_container_width=True)
             else:
                 st.warning(f"Aucune donnée d'anomalie pour l'année {selected_year}.")
         

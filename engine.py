@@ -503,6 +503,14 @@ def bulk_reconcile(df_cto: pd.DataFrame, roaming_id_col: str, cpo_folder_path: s
     if all_anomalies:
         df_result = pd.DataFrame(all_anomalies)
         
+        # Déduplication par ID_Retrouvé (priorité aux fichiers .xlsx)
+        if not df_result.empty and 'ID_Retrouvé' in df_result.columns and 'Fichier_Source' in df_result.columns:
+            df_result['is_xlsx'] = df_result['Fichier_Source'].str.lower().str.endswith('.xlsx')
+            df_result = df_result.sort_values(by=['ID_Retrouvé', 'is_xlsx'], ascending=[True, False])
+            df_result = df_result.drop_duplicates(subset=['ID_Retrouvé'], keep='first')
+            df_result = df_result.drop(columns=['is_xlsx'])
+            df_result = df_result.reset_index(drop=True)
+        
         # Sécurité pour PyArrow (convertit les objets et nettoie les NaNs)
         for col in df_result.columns:
             if col in ['Énergie_kWh', 'Montant_HT', 'Durée_Minutes']:
