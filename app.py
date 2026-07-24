@@ -7,7 +7,7 @@ try:
 except ModuleNotFoundError:
     from engine import load_data, bulk_reconcile, generate_excel_report
 
-from src.engine import load_data, bulk_reconcile, generate_excel_report
+
 
 st.set_page_config(page_title="Bump - Réconciliation Pro", page_icon="⚡", layout="wide")
 
