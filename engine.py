@@ -1,6 +1,33 @@
 import pandas as pd
 import io
 import os
+import re
+import datetime
+
+def parse_date_robust(val):
+    if pd.isna(val) or str(val).strip() == '':
+        return pd.NaT
+    if isinstance(val, (pd.Timestamp, datetime.datetime)):
+        return pd.to_datetime(val, utc=True)
+    val_str = str(val).strip()
+    if re.match(r'^\d{4}', val_str):
+        try:
+            res = pd.to_datetime(val_str, dayfirst=False, utc=True, errors='coerce')
+            if not pd.isna(res):
+                return res
+        except Exception:
+            pass
+    try:
+        res = pd.to_datetime(val_str, dayfirst=True, utc=True, errors='coerce')
+        if not pd.isna(res):
+            return res
+    except Exception:
+        pass
+    try:
+        return pd.to_datetime(val_str, utc=True, errors='coerce')
+    except Exception:
+        return pd.NaT
+
 
 def clean_header_rows(df: pd.DataFrame) -> pd.DataFrame:
     """Détecte si la ligne d'en-tête réelle est décalée vers le bas et la repositionne."""
@@ -421,8 +448,8 @@ def bulk_reconcile(df_cto: pd.DataFrame, roaming_id_col: str, cpo_folder_path: s
                     # Calcul de repli si la durée n'est pas fournie mais que les dates début/fin existent
                     if (duration is None or pd.isna(duration)) and start_date and end_date:
                         try:
-                            t_start = pd.to_datetime(start_date, utc=True, errors='coerce')
-                            t_end = pd.to_datetime(end_date, utc=True, errors='coerce')
+                            t_start = parse_date_robust(start_date)
+                            t_end = parse_date_robust(end_date)
                             if not pd.isna(t_start) and not pd.isna(t_end):
                                 diff = t_end - t_start
                                 duration = diff.total_seconds() / 60.0

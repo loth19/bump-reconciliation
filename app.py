@@ -4,11 +4,9 @@ import os
 import pickle
 import plotly.express as px
 try:
-    from src.engine import load_data, bulk_reconcile, generate_excel_report
+    from src.engine import load_data, bulk_reconcile, generate_excel_report, parse_date_robust
 except ModuleNotFoundError:
-    from engine import load_data, bulk_reconcile, generate_excel_report
-
-
+    from engine import load_data, bulk_reconcile, generate_excel_report, parse_date_robust
 
 st.set_page_config(page_title="Bump - Réconciliation Pro", page_icon="⚡", layout="wide")
 
@@ -243,7 +241,7 @@ if st.session_state["reconcile_results"] is not None:
         # Extraction des dates pour le filtrage par année et affichage par mois
         df_chart = anomalies.copy()
         if 'Date_Début' in df_chart.columns and not df_chart.empty:
-            df_chart['Date_Parsed'] = pd.to_datetime(df_chart['Date_Début'], utc=True, errors='coerce')
+            df_chart['Date_Parsed'] = df_chart['Date_Début'].apply(parse_date_robust)
             
             # Année et Mois
             df_chart['Année'] = df_chart['Date_Parsed'].dt.year.fillna(pd.Timestamp.now().year).astype(int)
