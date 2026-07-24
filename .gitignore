@@ -1,0 +1,3 @@
+.env
+*.pkl
+temp_cpo_uploads/
