@@ -210,6 +210,14 @@ if df_cto_preview is not None and has_cpo_input:
 if st.session_state["reconcile_results"] is not None:
     anomalies = st.session_state["reconcile_results"]
     
+    # Déduplication de sécurité par ID_Retrouvé (priorité aux fichiers .xlsx)
+    if not anomalies.empty and 'ID_Retrouvé' in anomalies.columns and 'Fichier_Source' in anomalies.columns:
+        anomalies['is_xlsx'] = anomalies['Fichier_Source'].str.lower().str.endswith('.xlsx')
+        anomalies = anomalies.sort_values(by=['ID_Retrouvé', 'is_xlsx'], ascending=[True, False])
+        anomalies = anomalies.drop_duplicates(subset=['ID_Retrouvé'], keep='first')
+        anomalies = anomalies.drop(columns=['is_xlsx'])
+        anomalies = anomalies.reset_index(drop=True)
+    
     if anomalies.empty:
         st.balloons()
         st.success("🎉 Aucune anomalie détectée ! Aucun des Roaming Session IDs n'a été retrouvé dans les factures.")
@@ -269,19 +277,16 @@ if st.session_state["reconcile_results"] is not None:
             df_year = df_chart[df_chart['Année'] == selected_year]
             
             if not df_year.empty:
-                # Tabulations Streamlit
-                tab_time, tab_cpo = st.tabs([
-                    "📈 Évolution Temporelle (Par Mois)", 
-                    "🏢 Répartition par Opérateur (CPO)"
-                ])
-                
                 # Groupe par CPO et Mois pour faire l'histogramme cumulé
                 df_grouped = df_year.groupby(['CPO', 'Mois'], as_index=False)['Montant_HT_Abs'].sum()
                 
                 # Classement des CPO par montant total dû (décroissant) pour l'ordre sur l'abscisse
                 cpo_order = df_year.groupby('CPO')['Montant_HT_Abs'].sum().sort_values(ascending=False).index.tolist()
                 
-                with tab_time:
+                # Création de deux colonnes pour afficher les deux graphiques côte à côte
+                col_chart1, col_chart2 = st.columns(2)
+                
+                with col_chart1:
                     # Graphique 1 : Évolution Temporelle (X = Mois, Y = Montant, Color = CPO)
                     fig_time = px.bar(
                         df_grouped,
@@ -304,7 +309,7 @@ if st.session_state["reconcile_results"] is not None:
                     )
                     st.plotly_chart(fig_time, use_container_width=True)
                     
-                with tab_cpo:
+                with col_chart2:
                     # Graphique 2 : Répartition par CPO (X = CPO, Y = Montant, Color = Mois)
                     fig_cpo = px.bar(
                         df_grouped,
