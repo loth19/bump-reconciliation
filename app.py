@@ -4,9 +4,9 @@ import os
 import pickle
 import plotly.express as px
 try:
-    from src.engine import load_data, bulk_reconcile, generate_excel_report, parse_date_robust
+    from src.engine import load_data, bulk_reconcile, generate_excel_report, parse_date_robust, clean_id
 except ModuleNotFoundError:
-    from engine import load_data, bulk_reconcile, generate_excel_report, parse_date_robust
+    from engine import load_data, bulk_reconcile, generate_excel_report, parse_date_robust, clean_id
 
 st.set_page_config(page_title="Bump - Réconciliation Pro", page_icon="⚡", layout="wide")
 
@@ -41,7 +41,6 @@ def clear_cache():
         except Exception:
             pass
 
-# Chargement du cache au premier chargement de la session Streamlit
 if "loaded_from_disk" not in st.session_state:
     cache = load_cache()
     if cache:
@@ -58,15 +57,10 @@ if "loaded_from_disk" not in st.session_state:
         st.session_state["cached_cto_preview"] = None
     st.session_state["loaded_from_disk"] = True
 
-# Barre latérale simplifiée et sécurisée (design entreprise épuré)
 with st.sidebar:
     st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR05_C-Gg3m6e75o1LhF8s7XbB5j_3jI1K8-g&s", width=120)
     st.subheader("⚡ Bump Finance")
     st.markdown("Outil de réconciliation universel des sessions de recharge.")
-    
-    # Vider la mémoire se fait désormais via le bouton Terminé en bas de page
-    pass
-            
     st.divider()
     st.caption("Version 2.3 - Entreprise")
 
@@ -105,45 +99,24 @@ with col1:
         if cached_col in options:
             default_index = options.index(cached_col)
             
-        roaming_id_col = st.selectbox(
-            "🟠 Colonne Roaming Session ID :", 
-            options=options,
-            index=default_index
-        )
+        roaming_id_col = st.selectbox("🟠 Colonne Roaming Session ID :", options=options, index=default_index)
 
 with col2:
     st.subheader("2️⃣ Factures CPO (Dossier ou Import)")
     st.caption("Sélectionne la méthode la plus adaptée pour fournir les factures CPO :")
     
-    cpo_method = st.radio(
-        "Méthode d'importation :",
-        options=["📁 Dossier local (chemin)", "📤 Glisser-déposer (fichiers/ZIP)"],
-        horizontal=True
-    )
+    cpo_method = st.radio("Méthode d'importation :", options=["📁 Dossier local (chemin)", "📤 Glisser-déposer (fichiers/ZIP)"], horizontal=True)
     
     cpo_folder_path = None
     uploaded_cpo_files = None
     
     if cpo_method == "📁 Dossier local (chemin)":
-        cpo_folder_path = st.text_input(
-            "Chemin du dossier CPO :", 
-            value=st.session_state.get("cached_cpo_folder_path", ""),
-            placeholder="C:\\Users\\...\\CPO Cdr"
-        )
+        cpo_folder_path = st.text_input("Chemin du dossier CPO :", value=st.session_state.get("cached_cpo_folder_path", ""), placeholder="C:\\Users\\...\\CPO Cdr")
     else:
-        uploaded_cpo_files = st.file_uploader(
-            "Glisse tes factures CPO (fichiers Excel/CSV ou archive ZIP) :",
-            type=["xlsx", "csv", "zip"],
-            accept_multiple_files=True,
-            key="cpo_upload"
-        )
+        uploaded_cpo_files = st.file_uploader("Glisse tes factures CPO (fichiers Excel/CSV ou archive ZIP) :", type=["xlsx", "csv", "zip"], accept_multiple_files=True, key="cpo_upload")
 
 st.divider()
 
-# Le cache est conservé activement et n'est supprimé que via le bouton Terminé en bas
-pass
-
-# Activation du bouton
 has_cpo_input = (cpo_method == "📁 Dossier local (chemin)" and cpo_folder_path) or (cpo_method == "📤 Glisser-déposer (fichiers/ZIP)" and uploaded_cpo_files)
 
 if df_cto_preview is not None and has_cpo_input:
@@ -154,10 +127,8 @@ if df_cto_preview is not None and has_cpo_input:
                 if cpo_method == "📁 Dossier local (chemin)":
                     actual_cpo_folder = cpo_folder_path
                 else:
-                    # Traitement des fichiers téléversés dans un dossier temporaire
                     import zipfile
                     import shutil
-                    
                     temp_dir = "temp_cpo_uploads"
                     if os.path.exists(temp_dir):
                         try:
@@ -165,7 +136,6 @@ if df_cto_preview is not None and has_cpo_input:
                         except Exception:
                             pass
                     os.makedirs(temp_dir, exist_ok=True)
-                    
                     for uploaded_file in uploaded_cpo_files:
                         file_name = uploaded_file.name
                         if file_name.lower().endswith(".zip"):
@@ -178,23 +148,16 @@ if df_cto_preview is not None and has_cpo_input:
                             target_path = os.path.join(temp_dir, file_name)
                             with open(target_path, "wb") as f:
                                 f.write(uploaded_file.getbuffer())
-                    
                     actual_cpo_folder = temp_dir
                 
                 df_cto = df_cto_preview.copy()
-                
-                anomalies = bulk_reconcile(
-                    df_cto=df_cto,
-                    roaming_id_col=roaming_id_col,
-                    cpo_folder_path=actual_cpo_folder
-                )
+                anomalies = bulk_reconcile(df_cto=df_cto, roaming_id_col=roaming_id_col, cpo_folder_path=actual_cpo_folder)
                 
                 st.session_state["reconcile_results"] = anomalies
                 if cpo_method == "📁 Dossier local (chemin)":
                     st.session_state["cached_cpo_folder_path"] = cpo_folder_path
                 st.session_state["cached_roaming_id_col"] = roaming_id_col
                 
-                # Sauvegarder dans le cache physique
                 save_cache(
                     cpo_folder_path=cpo_folder_path if cpo_method == "📁 Dossier local (chemin)" else "",
                     roaming_id_col=roaming_id_col,
@@ -206,11 +169,9 @@ if df_cto_preview is not None and has_cpo_input:
             except Exception as e:
                 st.error(f"Une erreur s'est produite : {e}")
 
-# Affichage des résultats s'ils existent dans le session_state
-if st.session_state["reconcile_results"] is not None:
+if st.session_state.get("reconcile_results") is not None:
     anomalies = st.session_state["reconcile_results"]
     
-    # Déduplication de sécurité par ID_Retrouvé (priorité aux fichiers .xlsx)
     if not anomalies.empty and 'ID_Retrouvé' in anomalies.columns and 'Fichier_Source' in anomalies.columns:
         anomalies['is_xlsx'] = anomalies['Fichier_Source'].str.lower().str.endswith('.xlsx')
         anomalies = anomalies.sort_values(by=['ID_Retrouvé', 'is_xlsx'], ascending=[True, False])
@@ -218,16 +179,48 @@ if st.session_state["reconcile_results"] is not None:
         anomalies = anomalies.drop(columns=['is_xlsx'])
         anomalies = anomalies.reset_index(drop=True)
     
-    if anomalies.empty:
-        st.balloons()
-        st.success("🎉 Aucune anomalie détectée ! Aucun des Roaming Session IDs n'a été retrouvé dans les factures.")
+    df_cto_preview = st.session_state.get("cached_cto_preview")
+    roaming_id_col = st.session_state.get("cached_roaming_id_col")
+    
+    missing_ids = set()
+    df_missing = pd.DataFrame()
+    
+    if df_cto_preview is not None and roaming_id_col in df_cto_preview.columns:
+        all_cto_ids = set(df_cto_preview[roaming_id_col].apply(clean_id).tolist())
+        all_cto_ids.discard('nan')
+        all_cto_ids.discard('')
+        
+        found_ids = set()
+        if not anomalies.empty and 'ID_Retrouvé' in anomalies.columns:
+            for val in anomalies['ID_Retrouvé'].dropna():
+                for v in str(val).split(','):
+                    v_clean = clean_id(v)
+                    if v_clean:
+                        found_ids.add(v_clean)
+        
+        missing_ids = all_cto_ids - found_ids
+        mask_missing = df_cto_preview[roaming_id_col].apply(lambda x: clean_id(x) in missing_ids)
+        df_missing = df_cto_preview[mask_missing].copy()
+    
+    st.divider()
+    st.success("✅ CODE MIS A JOUR : GESTION DES MANQUANTS ACTIVE")
+    st.subheader("👻 Sessions Manquantes (Introuvables chez le CPO)")
+    
+    if len(missing_ids) > 0:
+        st.warning(f"Il y a **{len(missing_ids)} sessions** dans ton fichier CTO original qui n'apparaissent dans AUCUNE facture CPO.")
+        st.dataframe(df_missing)
     else:
-        st.error(f"🚨 ALERTE : {len(anomalies)} sessions retrouvées dans les factures CPO !")
+        st.success("🎉 Toutes les sessions de ton CTO ont été retrouvées au moins une fois dans les factures CPO.")
+
+    st.divider()
+    st.subheader("🔍 Sessions Retrouvées (En commun)")
+
+    if anomalies.empty:
+        st.info("Aucun des Roaming Session IDs du CTO n'a été retrouvé dans les factures.")
+    else:
+        st.error(f"🚨 ALERTE : {len(anomalies)} sessions du CTO ont été retrouvées dans les factures CPO !")
         
-        # ---- SECTION KPIs ----
         st.subheader("📊 Indicateurs Clés (KPI)")
-        
-        # Calculs
         total_due = anomalies['Montant_HT'].abs().sum() if 'Montant_HT' in anomalies.columns else 0.0
         total_sessions = len(anomalies)
         total_energy = anomalies['Énergie_kWh'].sum() if 'Énergie_kWh' in anomalies.columns else 0.0
@@ -243,98 +236,6 @@ if st.session_state["reconcile_results"] is not None:
         with col_m4:
             st.metric("⏱️ Durée Totale", f"{total_duration_hours:,.1f} h" if not pd.isna(total_duration_hours) else "0.0 h")
         
-        # ---- SECTION GRAPHIQUE ----
-        st.divider()
-        
-        # Extraction des dates pour le filtrage par année et affichage par mois
-        df_chart = anomalies.copy()
-        if 'Date_Début' in df_chart.columns and not df_chart.empty:
-            df_chart['Date_Parsed'] = df_chart['Date_Début'].apply(parse_date_robust)
-            
-            # Année et Mois
-            df_chart['Année'] = df_chart['Date_Parsed'].dt.year.fillna(pd.Timestamp.now().year).astype(int)
-            months_fr = {
-                1: "01 - Janvier", 2: "02 - Février", 3: "03 - Mars", 4: "04 - Avril",
-                5: "05 - Mai", 6: "06 - Juin", 7: "07 - Juillet", 8: "08 - Août",
-                9: "09 - Septembre", 10: "10 - Octobre", 11: "11 - Novembre", 12: "12 - Décembre"
-            }
-            df_chart['Mois'] = df_chart['Date_Parsed'].dt.month.fillna(1).map(months_fr)
-            df_chart['Montant_HT_Abs'] = df_chart['Montant_HT'].abs() if 'Montant_HT' in df_chart.columns else 0.0
-            
-            years = sorted(df_chart['Année'].unique(), reverse=True)
-            
-            col_title, col_filter = st.columns([3, 1])
-            with col_title:
-                st.subheader("📈 Analyse Financière par CPO & Mois (Montant Dû)")
-            with col_filter:
-                if len(years) > 1:
-                    selected_year = st.selectbox("📅 Choisir l'Année :", options=years)
-                else:
-                    selected_year = years[0] if years else pd.Timestamp.now().year
-                    st.info(f"📅 Année affichée : {selected_year}")
-            
-            # Filtrer par année
-            df_year = df_chart[df_chart['Année'] == selected_year]
-            
-            if not df_year.empty:
-                # Groupe par CPO et Mois pour faire l'histogramme cumulé
-                df_grouped = df_year.groupby(['CPO', 'Mois'], as_index=False)['Montant_HT_Abs'].sum()
-                
-                # Classement des CPO par montant total dû (décroissant) pour l'ordre sur l'abscisse
-                cpo_order = df_year.groupby('CPO')['Montant_HT_Abs'].sum().sort_values(ascending=False).index.tolist()
-                
-                # Création de deux colonnes pour afficher les deux graphiques côte à côte
-                col_chart1, col_chart2 = st.columns(2)
-                
-                with col_chart1:
-                    # Graphique 1 : Évolution Temporelle (X = Mois, Y = Montant, Color = CPO)
-                    fig_time = px.bar(
-                        df_grouped,
-                        x='Mois',
-                        y='Montant_HT_Abs',
-                        color='CPO',
-                        title=f"Explosion du Montant Dû (€) par Mois de Recharge en {selected_year}",
-                        labels={'Mois': 'Mois de Recharge', 'Montant_HT_Abs': 'Montant Dû (€)', 'CPO': 'Opérateur CPO'},
-                        category_orders={'Mois': sorted(months_fr.values())},
-                        color_discrete_sequence=px.colors.qualitative.Prism,
-                        text_auto='.2f'
-                    )
-                    fig_time.update_layout(
-                        barmode='stack',
-                        xaxis_title="Chronologie (Mois de Recharge)",
-                        yaxis_title="Total Montant Dû (valeur absolue) en €",
-                        hovermode="x unified",
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                    )
-                    st.plotly_chart(fig_time, use_container_width=True)
-                    
-                with col_chart2:
-                    # Graphique 2 : Répartition par CPO (X = CPO, Y = Montant, Color = Mois)
-                    fig_cpo = px.bar(
-                        df_grouped,
-                        x='CPO',
-                        y='Montant_HT_Abs',
-                        color='Mois',
-                        title=f"Répartition du Montant Dû (€) par CPO et par Mois en {selected_year}",
-                        labels={'CPO': 'Opérateur CPO', 'Montant_HT_Abs': 'Montant Dû (€)', 'Mois': 'Mois de Recharge'},
-                        category_orders={'CPO': cpo_order, 'Mois': sorted(months_fr.values())},
-                        color_discrete_sequence=px.colors.qualitative.Prism,
-                        text_auto='.2f'
-                    )
-                    fig_cpo.update_layout(
-                        barmode='stack',
-                        xaxis_title="Opérateurs CPO (classés par montant dû décroissant)",
-                        yaxis_title="Total Montant Dû (valeur absolue) en €",
-                        hovermode="x unified",
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                    )
-                    st.plotly_chart(fig_cpo, use_container_width=True)
-            else:
-                st.warning(f"Aucune donnée d'anomalie pour l'année {selected_year}.")
-        
-        # ---- TABLEAU DE DÉTAILS ----
         st.divider()
         st.subheader("📋 Liste Détaillée des Anomalies")
         st.dataframe(anomalies)
@@ -342,14 +243,7 @@ if st.session_state["reconcile_results"] is not None:
         col_down, col_done = st.columns(2)
         with col_down:
             excel_data = generate_excel_report(anomalies)
-            st.download_button(
-                label="📥 Télécharger le Rapport Complet (Excel)",
-                data=excel_data,
-                file_name="Rapport_Anomalies_Bump.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary",
-                use_container_width=True
-            )
+            st.download_button("📥 Télécharger le Rapport Complet (Excel)", data=excel_data, file_name="Rapport_Anomalies_Bump.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary", use_container_width=True)
         with col_done:
             if st.button("🏁 Terminé (Effacer et Réinitialiser)", use_container_width=True, type="secondary"):
                 st.session_state["reconcile_results"] = None
