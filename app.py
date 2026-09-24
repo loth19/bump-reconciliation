@@ -237,7 +237,7 @@ if st.session_state.get("reconcile_results") is not None:
             st.metric("⏱️ Durée Totale", f"{total_duration_hours:,.1f} h" if not pd.isna(total_duration_hours) else "0.0 h")
         
         st.divider()
-        st.subheader("📋 Liste Détaillée des Anomalies")
+        st.subheader("📋 Liste Détaillée des Sessions")
         st.dataframe(anomalies)
         
         col_down, col_done = st.columns(2)
